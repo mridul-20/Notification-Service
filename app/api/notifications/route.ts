@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
-import { v4 as uuidv4 } from "uuid"
+import { NotificationService } from "@/lib/notification-service"
 import { db } from "@/lib/db"
-import { emitNotification } from "@/lib/socket-server"
+import { NOTIFICATION_TYPES } from "@/lib/constants"
 
 export async function POST(request: Request) {
   try {
@@ -14,31 +14,29 @@ export async function POST(request: Request) {
     }
 
     // Validate notification type
-    if (!["EMAIL", "SMS", "IN_APP"].includes(type)) {
+    if (!Object.values(NOTIFICATION_TYPES).includes(type)) {
       return NextResponse.json({ error: "Invalid notification type" }, { status: 400 })
     }
 
-    // Create notification
-    const notification = {
-      id: uuidv4(),
+    const notification = await NotificationService.sendNotification({
       userId,
       type,
-      subject: subject || undefined,
+      subject,
       message,
-      timestamp: new Date().toISOString(),
+    })
+
+    // Store notification in database
+
+    // TODO: Implement email and SMS sending based on type
+    if (type === "EMAIL") {
+      // Implement email sending
+    } else if (type === "SMS") {
+      // Implement SMS sending
     }
 
-    // Store notification
-    db.notifications.push(notification)
-
-    // Emit real-time notification if it's an in-app notification
-    if (type === "IN_APP") {
-      emitNotification(notification)
-    }
-
-    return NextResponse.json({ message: "Notification sent successfully", notification }, { status: 201 })
+    return NextResponse.json(notification, { status: 201 })
   } catch (error) {
-    console.error("Error sending notification:", error)
-    return NextResponse.json({ error: "Failed to send notification" }, { status: 500 })
+    console.error("Error creating notification:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
